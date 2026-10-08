@@ -215,8 +215,6 @@ def build_unet(network, weights, cfg, dtype, work_trt):
             "text_embeds", trt.float32, (1, cfg["pooled_projection_dim"]))
         time_ids = network.add_input(
             "time_ids", trt.float32, (1, cfg["addition_time_ids"]))
-    for tensor in (sample, timestep, context):
-        pass
     x = sample if sample.dtype == work_trt else network.add_cast(sample, work_trt).get_output(0)
     ctx = context if context.dtype == work_trt else network.add_cast(
         context, work_trt).get_output(0)
