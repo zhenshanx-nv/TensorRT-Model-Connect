@@ -31,6 +31,21 @@ std::vector<float> schedule(int n) {
     return alphas;
 }
 
+// The schedule SDXL actually ships: betas spaced linearly in sqrt-space
+// ("scaled_linear") between 0.00085 and 0.012, then alphas_cumprod.
+std::vector<float> sdxl_schedule(int n) {
+    std::vector<float> alphas(static_cast<std::size_t>(n));
+    const double lo = std::sqrt(0.00085);
+    const double hi = std::sqrt(0.012);
+    double running = 1.0;
+    for (int i = 0; i < n; ++i) {
+        const double root = lo + (hi - lo) * i / (n - 1);
+        running *= 1.0 - root * root;
+        alphas[static_cast<std::size_t>(i)] = static_cast<float>(running);
+    }
+    return alphas;
+}
+
 void test_timesteps_descend_and_count() {
     trtmc::stable_diffusion::DdimScheduler s(schedule(1000), 1000, 1);
     const auto steps = s.timesteps(10);
@@ -123,7 +138,10 @@ void test_sigma_rises_with_the_timestep() {
 }
 
 void test_init_noise_sigma_is_the_largest_in_the_walk() {
-    trtmc::stable_diffusion::EulerAncestralScheduler s(schedule(1000), 1000);
+    // Measured against the real schedule, not the stand-in: the stand-in
+    // bottoms out at alpha 0.1, so its largest sigma is only 3.0 and it cannot
+    // show how far from unity the true starting point sits.
+    trtmc::stable_diffusion::EulerAncestralScheduler s(sdxl_schedule(1000), 1000);
     const auto walk = s.timesteps(4);
     const double start = s.init_noise_sigma(walk);
     for (const auto timestep : walk)
@@ -131,7 +149,7 @@ void test_init_noise_sigma_is_the_largest_in_the_walk() {
     check(start == s.sigma_at(walk[0]), "the walk starts at its noisiest point");
     // Omitting this factor is the failure that scored PSNR 7.83 instead of
     // 31.71: the latents enter the UNet an order of magnitude too quiet.
-    check(start > 10.0, "the starting sigma is far from unity");
+    check(start > 14.0 && start < 15.0, "the starting sigma is about 14.6");
 }
 
 void test_scale_input_divides_by_the_noise_level() {
