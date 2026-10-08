@@ -7,8 +7,8 @@
 #include "trtmc/runtime/family_factory.h"
 #include "trtmc/runtime/trt_backend.h"
 
-#include <nlohmann/json.hpp>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -97,8 +97,7 @@ extern "C" trtmc::ITask* trtmc_create_family(const trtmc::FamilyContext& context
         const auto second_plan = sd::require_section(context.reader, "text_encoder_2.plan");
         const auto second_json = sd::require_section(context.reader, "tokenizer_2.json");
         text_encoder_2 = sd::load_engine(context.backend, second_plan, "second text encoder");
-        tokenizer_2 =
-            trtmc::CreateBpeTokenizer(second_json.data(), second_json.size(), false);
+        tokenizer_2 = trtmc::CreateBpeTokenizer(second_json.data(), second_json.size(), false);
         if (!tokenizer_2)
             throw std::runtime_error("stable_diffusion could not build its second tokenizer");
     }

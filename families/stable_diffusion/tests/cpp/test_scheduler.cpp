@@ -90,7 +90,6 @@ void test_the_final_step_targets_alpha_one() {
     check(std::isfinite(latents[0]), "the last step is finite");
 }
 
-
 // --- Euler-Ancestral, the SDXL branch ---------------------------------------
 
 void test_euler_timesteps_are_trailing_spaced() {

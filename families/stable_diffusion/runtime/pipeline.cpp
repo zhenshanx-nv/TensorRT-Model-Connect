@@ -107,8 +107,8 @@ std::vector<float> StableDiffusionPipeline::encode_xl(const std::string& text,
     // is 0 for SDXL. Both are read at the penultimate layer, with no final
     // layer norm, and their hidden states are concatenated along the width.
     auto ids = tokenize(*tokenizer_, text, bos_token_id_, pad_token_id_, pad_token_id_);
-    auto ids_2 = tokenize(*tokenizer_2_, text, bos_token_id_2_, eos_token_id_2_,
-                         config_.tokenizer_2_pad_id);
+    auto ids_2 =
+        tokenize(*tokenizer_2_, text, bos_token_id_2_, eos_token_id_2_, config_.tokenizer_2_pad_id);
 
     Tensor input;
     input.data = ids.data();

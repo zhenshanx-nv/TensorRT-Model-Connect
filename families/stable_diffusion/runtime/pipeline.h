@@ -46,8 +46,7 @@ class StableDiffusionPipeline final : public IImageGeneration {
                             std::unique_ptr<ITrtModule> text_encoder_2,
                             std::unique_ptr<ITrtModule> unet, std::unique_ptr<ITrtModule> vae,
                             std::unique_ptr<ITokenizer> tokenizer,
-                            std::unique_ptr<ITokenizer> tokenizer_2,
-                            StableDiffusionConfig config);
+                            std::unique_ptr<ITokenizer> tokenizer_2, StableDiffusionConfig config);
 
     ImageResult generate_image(const std::string& prompt,
                                const ImageGenerationConfig& config = {}) override;
