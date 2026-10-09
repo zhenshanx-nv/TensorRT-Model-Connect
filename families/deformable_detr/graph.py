@@ -142,3 +142,48 @@ def tokens_to_spatial(network, x, height, width):
     back.first_transpose = (0, 2, 1)
     back.reshape_dims = (shape[0], shape[2], int(height), int(width))
     return back.get_output(0)
+
+
+def add_group_norm(network, inp, gamma, beta, groups, eps, dtype=np.float32):
+    """GroupNorm written as an explicit reduction.
+
+    TensorRT ships INormalizationLayer, but it rejected every axis/scale
+    combination tried here with mutually contradictory messages, so the
+    statistics are reduced by hand. The shapes are static per feature level,
+    which keeps this straightforward.
+    """
+    shape = tuple(inp.shape)
+    channels = shape[1]
+    if channels % groups:
+        raise ValueError("group_norm channels must divide into the group count")
+
+    grouped = network.add_shuffle(inp)
+    grouped.reshape_dims = (shape[0], groups, channels // groups * shape[2] * shape[3])
+    x = grouped.get_output(0)
+
+    # Reduce over everything inside a group: axis 2 of (N, groups, rest).
+    axis = 1 << 2
+    mean = network.add_reduce(x, trt.ReduceOperation.AVG, axis, keep_dims=True).get_output(0)
+    centred = network.add_elementwise(x, mean, trt.ElementWiseOperation.SUB).get_output(0)
+    squared = network.add_elementwise(
+        centred, centred, trt.ElementWiseOperation.PROD).get_output(0)
+    variance = network.add_reduce(
+        squared, trt.ReduceOperation.AVG, axis, keep_dims=True).get_output(0)
+    epsilon = add_constant(network, (1, 1, 1), np.array([eps], dtype=dtype), dtype)
+    variance = network.add_elementwise(
+        variance, epsilon, trt.ElementWiseOperation.SUM).get_output(0)
+    deviation = network.add_unary(variance, trt.UnaryOperation.SQRT).get_output(0)
+    normed = network.add_elementwise(
+        centred, deviation, trt.ElementWiseOperation.DIV).get_output(0)
+
+    restored = network.add_shuffle(normed)
+    restored.reshape_dims = shape
+    y = restored.get_output(0)
+
+    # The affine term is per channel, not per group.
+    scale = add_constant(network, (1, channels, 1, 1),
+                         np.asarray(gamma, dtype=dtype).reshape(1, channels, 1, 1), dtype)
+    shift = add_constant(network, (1, channels, 1, 1),
+                         np.asarray(beta, dtype=dtype).reshape(1, channels, 1, 1), dtype)
+    y = network.add_elementwise(y, scale, trt.ElementWiseOperation.PROD).get_output(0)
+    return network.add_elementwise(y, shift, trt.ElementWiseOperation.SUM).get_output(0)
