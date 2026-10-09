@@ -47,20 +47,26 @@ def _slice(network, x, start, size):
 
 
 def build_deformable_attention(network, hidden, posed, reference, weights, prefix,
-                               shapes, heads, points, dtype=np.float32):
+                               shapes, heads, points, dtype=np.float32, value_source=None):
     """One multi-scale deformable attention block.
 
     ``hidden`` is ``(1, queries, width)``; ``posed`` is the same tensor with the
-    position embeddings already added. ``reference`` is the baked
-    ``(1, queries, levels, 2)`` constant of normalised centres.
+    position embeddings already added. ``reference`` is the
+    ``(1, queries, levels, 2)`` tensor of normalised centres.
+
+    ``value_source`` is what the values are sampled from. The encoder attends to
+    itself and leaves it unset; the decoder passes the encoder output, whose
+    token count is the pyramid's, not the query count.
     """
     queries = int(hidden.shape[1])
     width = int(hidden.shape[2])
+    if value_source is None:
+        value_source = hidden
     levels = len(shapes)
     head_dim = width // heads
 
-    # value comes from the UNPOSED hidden states.
-    value = g.add_linear(network, hidden, weights[f"{prefix}.value_proj.weight"],
+    # value comes from the UNPOSED source tensor.
+    value = g.add_linear(network, value_source, weights[f"{prefix}.value_proj.weight"],
                          weights[f"{prefix}.value_proj.bias"], dtype)
 
     # offsets and weights come from the POSED hidden states.
