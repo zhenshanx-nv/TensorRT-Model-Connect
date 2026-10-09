@@ -96,7 +96,6 @@ def build_decoder(network, memory, weights, shapes, config,
                   prefix="model.decoder", dtype=np.float32):
     """Return the final decoder hidden states and the baked reference points."""
     query_embed, target, reference = initial_queries(weights)
-    queries = target.shape[1]
     levels = len(shapes)
 
     hidden = g.add_constant(network, target.shape, target.astype(dtype), dtype)
